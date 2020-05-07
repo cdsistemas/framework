@@ -449,7 +449,11 @@ class Connection implements ConnectionInterface
             }
 
             $this->bindValues($statement, $this->prepareBindings($bindings));
-
+            $status = $statement->execute();
+            if(!$status){
+                $error = $statement->errorInfo();
+                throw new \PDOException($error[2]);
+            }
             return $statement->execute();
         });
     }
@@ -475,7 +479,11 @@ class Connection implements ConnectionInterface
 
             $this->bindValues($statement, $this->prepareBindings($bindings));
 
-            $statement->execute();
+            $status = $statement->execute();
+            if(!$status){
+                $error = $statement->errorInfo();
+                throw new \PDOException($error[2]);
+            }
 
             return $statement->rowCount();
         });
@@ -559,7 +567,7 @@ class Connection implements ConnectionInterface
         foreach ($bindings as $key => $value) {
             $statement->bindValue(
                 is_string($key) ? $key : $key + 1, $value,
-                is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR
+                PDO::PARAM_STR
             );
         }
     }
