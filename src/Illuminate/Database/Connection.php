@@ -454,7 +454,7 @@ class Connection implements ConnectionInterface
                 $error = $statement->errorInfo();
                 throw new \PDOException($error[2]);
             }
-            return $statement->execute();
+            return $status;
         });
     }
 
