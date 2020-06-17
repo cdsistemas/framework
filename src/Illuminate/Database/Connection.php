@@ -332,12 +332,16 @@ class Connection implements ConnectionInterface
      * @return string|string[]|null
      */
     protected function cleanBindings($query, $bindings){
-        foreach ($bindings as $binding){
+        $patterns = [];
+        foreach ($bindings as &$binding){
+            $patterns[] = "/ \?/ ";
             if(is_array($binding)){
-                $binding = "'" . join("', '", $binding);
+                $binding = " ('" . join("', '", $binding) . ")";
+            } else {
+                $binding = " '$binding' ";
             }
-            $query = preg_replace('/\?/', "'$binding'", $query, 1);
         }
+        $query = preg_replace($patterns, $bindings, $query, 1);
         return $query;
     }
 
