@@ -324,12 +324,18 @@ class Connection implements ConnectionInterface
     }
 
     /**
+     * Transforma o comando SQL em hardcoded, removendo os binds.
+     * Dessa forma, o Projeto não gera erros ao realizar muitas operações numa mesma transação no banco de dados
+     *
      * @param $query
      * @param $bindings
      * @return string|string[]|null
      */
     protected function cleanBindings($query, $bindings){
         foreach ($bindings as $binding){
+            if(is_array($binding)){
+                $binding = "'" . join("', '", $binding);
+            }
             $query = preg_replace('/\?/', "'$binding'", $query, 1);
         }
         return $query;
