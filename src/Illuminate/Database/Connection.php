@@ -315,15 +315,24 @@ class Connection implements ConnectionInterface
             // For select statements, we'll simply execute the query and return an array
             // of the database result set. Each element in the array will be a single
             // row from the database table, and will either be an array or objects.
-            $statement = $this->prepared($this->getPdoForSelect($useReadPdo)
-                              ->prepare($query));
-
-            $this->bindValues($statement, $this->prepareBindings($bindings));
-
+            $pdo = $this->getPdo();
+            $statement = $pdo->query($this->cleanBindings($query, $bindings));
             $statement->execute();
 
             return $statement->fetchAll();
         });
+    }
+
+    /**
+     * @param $query
+     * @param $bindings
+     * @return string|string[]|null
+     */
+    protected function cleanBindings($query, $bindings){
+        foreach ($bindings as $binding){
+            $query = preg_replace('/\?/', "'$binding'", $query, 1);
+        }
+        return $query;
     }
 
     /**
@@ -442,13 +451,12 @@ class Connection implements ConnectionInterface
                 return true;
             }
 
-            $statement = $this->getPdo()->prepare($query);
+            $statement = $this->getPdo()->prepare($this->cleanBindings($query, $bindings));
             if(!$statement){ // If any error occurred on this query throw exception
                 $error = $this->getPdo()->errorInfo();
                 throw new \PDOException($error[1]);
             }
 
-            $this->bindValues($statement, $this->prepareBindings($bindings));
             $status = $statement->execute();
             if(!$status){
                 $error = $statement->errorInfo();
@@ -475,10 +483,7 @@ class Connection implements ConnectionInterface
             // For update or delete statements, we want to get the number of rows affected
             // by the statement and return that back to the developer. We'll first need
             // to execute the statement and then we'll use PDO to fetch the affected.
-            $statement = $this->getPdo()->prepare($query);
-
-            $this->bindValues($statement, $this->prepareBindings($bindings));
-
+            $statement = $this->getPdo()->prepare($this->cleanBindings($query, $bindings));
             $status = $statement->execute();
             if(!$status){
                 $error = $statement->errorInfo();
