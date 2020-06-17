@@ -335,14 +335,18 @@ class Connection implements ConnectionInterface
         $patterns = [];
         foreach ($bindings as &$binding){
             $patterns[] = "/ \?/ ";
-            if(is_array($binding)){
+            if(is_bool($binding)){
+                $binding = $binding ? ' 1' : ' 0';
+            } elseif (is_array($binding)){
                 $binding = " ('" . join("', '", $binding) . ")";
+            } elseif (is_numeric($binding)){
+                $binding = " $binding";
             } else {
                 $binding = " '$binding' ";
             }
         }
         $query = preg_replace($patterns, $bindings, $query, 1);
-        return $query;
+        return trim($query);
     }
 
     /**
