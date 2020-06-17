@@ -334,7 +334,7 @@ class Connection implements ConnectionInterface
     protected function cleanBindings($query, $bindings){
         $patterns = [];
         foreach ($bindings as &$binding){
-            $patterns[] = "/ \?/ ";
+            $patterns[] = " / \?/ ";
             if(is_bool($binding)){
                 $binding = $binding ? ' 1' : ' 0';
             } elseif (is_array($binding)){
