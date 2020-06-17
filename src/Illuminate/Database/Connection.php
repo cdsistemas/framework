@@ -339,8 +339,6 @@ class Connection implements ConnectionInterface
                 $binding = $binding ? ' 1' : ' 0';
             } elseif (is_array($binding)){
                 $binding = " ('" . join("', '", $binding) . ")";
-            } elseif (is_numeric($binding)){
-                $binding = " $binding";
             } else {
                 $binding = " '$binding' ";
             }
