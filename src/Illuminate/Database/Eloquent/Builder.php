@@ -265,10 +265,13 @@ class Builder
      */
     public function find($id, $columns = ['*'])
     {
+
         if (is_array($id) || $id instanceof Arrayable) {
             return $this->findMany($id, $columns);
         }
-
+        if(empty($id)){
+            $id = 0;
+        }
         return $this->whereKey($id)->first($columns);
     }
 
