@@ -2,6 +2,7 @@
 
 namespace Illuminate\Database;
 
+use EstoklusCom\models\ORM\Base\BaseInternoSimNao;
 use PDO;
 use Closure;
 use Exception;
@@ -338,6 +339,8 @@ class Connection implements ConnectionInterface
             $patterns[] = " / \?/ ";
             if(is_bool($binding)){
                 $binding = $binding ? ' 1' : ' 0';
+            } elseif (is_null($binding)){
+                $binding = 'null';
             } elseif (is_array($binding)){
                 $binding = " ('" . join("', '", $binding) . ")";
             } else {
@@ -463,11 +466,15 @@ class Connection implements ConnectionInterface
             if ($this->pretending()) {
                 return true;
             }
-
-            $statement = $this->getPdo()->prepare($this->cleanBindings($query, $bindings));
+            $sql = $this->cleanBindings($query, $bindings);
+            $statement = $this->getPdo()->prepare($sql);
             if(!$statement){ // If any error occurred on this query throw exception
-                $error = $this->getPdo()->errorInfo();
-                throw new \PDOException($error[1]);
+                $statement = ibase_query(BaseInternoSimNao::get_conn_id(), $this->cleanBindings($query, $bindings));
+                if($statement === false){
+                    $error = $this->getPdo()->errorInfo();
+                    throw new \PDOException($error[1]);
+                }
+                return $statement;
             }
 
             $status = $statement->execute();
@@ -497,6 +504,15 @@ class Connection implements ConnectionInterface
             // by the statement and return that back to the developer. We'll first need
             // to execute the statement and then we'll use PDO to fetch the affected.
             $statement = $this->getPdo()->prepare($this->cleanBindings($query, $bindings));
+            if(!$statement){ // If any error occurred on this query throw exception
+                $statement = ibase_query(BaseInternoSimNao::get_conn_id(), $this->cleanBindings($query, $bindings));
+                if($statement === false){
+                    $error = $this->getPdo()->errorInfo();
+                    throw new \PDOException($error[1]);
+                }
+                return $statement;
+
+            }
             $status = $statement->execute();
             if(!$status){
                 $error = $statement->errorInfo();
