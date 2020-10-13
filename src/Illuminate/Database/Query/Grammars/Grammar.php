@@ -71,7 +71,7 @@ class Grammar extends BaseGrammar
 
         $query->columns = $original;
 
-        return $sql;
+        return "Select $sql";
     }
 
     /**
@@ -135,9 +135,9 @@ class Grammar extends BaseGrammar
         }
 
         if ($query->distinct) {
-            $select = 'select distinct ';
+            $select = 'distinct ';
         } else {
-            $select = 'select ';
+            $select = '';
         }
 
         return $select.$this->columnize($columns);
