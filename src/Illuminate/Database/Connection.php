@@ -469,12 +469,13 @@ class Connection implements ConnectionInterface
             $sql = $this->cleanBindings($query, $bindings);
             $statement = $this->getPdo()->prepare($sql);
             if(!$statement){ // If any error occurred on this query throw exception
-                $statement = ibase_query(BaseInternoSimNao::get_conn_id(), $this->cleanBindings($query, $bindings));
-                if($statement === false){
+                if(function_exists("get_instance")){ // Se está sendo executando em um CodeIgniter, execute o comando usando o ibase_connect() do CodeIgniter
+                    $CI = &get_instance();
+                    return $CI->db->query($this->cleanBindings($query, $bindings));
+                } else {
                     $error = $this->getPdo()->errorInfo();
-                    throw new \PDOException($error[1]);
+                    throw new \PDOException($error[2]);
                 }
-                return $statement;
             }
 
             $status = $statement->execute();
