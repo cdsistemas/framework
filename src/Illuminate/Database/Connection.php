@@ -466,13 +466,11 @@ class Connection implements ConnectionInterface
             if ($this->pretending()) {
                 return true;
             }
-            $this->beginTransaction();
+            $CI = &get_instance();
             $sql = $this->cleanBindings($query, $bindings);
             $statement = $this->getPdo()->prepare($sql);
             if(!$statement){ // If any error occurred on this query throw exception
-                $this->rollBack();
                 if(function_exists("get_instance")){ // Se está sendo executando em um CodeIgniter, execute o comando usando o ibase_connect() do CodeIgniter
-                    $CI = &get_instance();
                     return $CI->db->query($this->cleanBindings($query, $bindings));
                 } else {
                     $error = $this->getPdo()->errorInfo();
@@ -482,11 +480,13 @@ class Connection implements ConnectionInterface
 
             $status = $statement->execute();
             if(!$status){
-                $this->rollBack();
+                $status = $CI->db->query($this->cleanBindings($query, $bindings));
+                if($status){
+                    return $status;
+                }
                 $error = $statement->errorInfo();
                 throw new \PDOException($error[2]);
             }
-            $this->commit();
             return $status;
         });
     }
