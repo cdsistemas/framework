@@ -503,6 +503,7 @@ class Connection implements ConnectionInterface
             // For update or delete statements, we want to get the number of rows affected
             // by the statement and return that back to the developer. We'll first need
             // to execute the statement and then we'll use PDO to fetch the affected.
+            $this->beginTransaction();
             $statement = $this->getPdo()->prepare($this->cleanBindings($query, $bindings));
             if(!$statement){ // If any error occurred on this query throw exception
                 $statement = ibase_query(BaseInternoSimNao::get_conn_id(), $this->cleanBindings($query, $bindings));
@@ -515,9 +516,11 @@ class Connection implements ConnectionInterface
             }
             $status = $statement->execute();
             if(!$status){
+                $this->getPdo()->rollBack();
                 $error = $statement->errorInfo();
                 throw new \PDOException($error[2]);
             }
+            $this->commit();
 
             return $statement->rowCount();
         });
