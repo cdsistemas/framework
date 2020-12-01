@@ -316,14 +316,6 @@ class Connection implements ConnectionInterface
             if($this->isCodeIgniter()){
                 $sql = $this->cleanBindings($query, $bindings);
                 $results = $this->runLegacyStatement($sql)->result();
-                foreach ($results as &$result){
-                    foreach ($result as $key => $value){
-                        $str = blob_firebird_php($value);
-                        if($str){
-                            $result->$key = $str;
-                        }
-                    }
-                }
                 return $results;
             }
             // For select statements, we'll simply execute the query and return an array
