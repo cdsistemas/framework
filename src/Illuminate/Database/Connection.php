@@ -466,6 +466,9 @@ class Connection implements ConnectionInterface
             if ($this->pretending()) {
                 return true;
             }
+            if($this->isCodeIgniter()){
+                return $this->runLegacyStatement($this->cleanBindings($query, $bindings));
+            }
             $CI = &get_instance();
             $sql = $this->cleanBindings($query, $bindings);
             $statement = $this->getPdo()->prepare($sql);
@@ -503,6 +506,9 @@ class Connection implements ConnectionInterface
         return $this->run($query, $bindings, function ($query, $bindings) {
             if ($this->pretending()) {
                 return 0;
+            }
+            if($this->isCodeIgniter()){
+                return $this->runLegacyStatement($this->cleanBindings($query, $bindings));
             }
 
             // For update or delete statements, we want to get the number of rows affected
@@ -1253,5 +1259,21 @@ class Connection implements ConnectionInterface
     {
         return isset(static::$resolvers[$driver]) ?
                      static::$resolvers[$driver] : null;
+    }
+
+    /**
+     * @param $sql
+     * @return mixed
+     */
+    protected function runLegacyStatement($sql){
+        $CI = &get_instance();
+        return $CI->db->query($sql);
+    }
+
+    /**
+     * @return bool
+     */
+    protected function isCodeIgniter(){
+        return function_exists("get_instance");
     }
 }
