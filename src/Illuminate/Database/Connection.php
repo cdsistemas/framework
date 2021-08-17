@@ -344,19 +344,28 @@ class Connection implements ConnectionInterface
             if ($this->pretending()) {
                 return [];
             }
+            if($this->usingFirebird15()){
+                $conn = $this->getInterbaseConnection();
+                $query = $this->getInterbaseQuery($conn, $query, $bindings);
+                $return = [];
+                while ($q = ibase_fetch_object($query)){
+                    $return[] = $q;
+                }
+                return $return;
+            } else {
+                // For select statements, we'll simply execute the query and return an array
+                // of the database result set. Each element in the array will be a single
+                // row from the database table, and will either be an array or objects.
+                $statement = $this->prepared(
+                    $this->getPdoForSelect($useReadPdo)->prepare($query)
+                );
 
-            // For select statements, we'll simply execute the query and return an array
-            // of the database result set. Each element in the array will be a single
-            // row from the database table, and will either be an array or objects.
-            $statement = $this->prepared(
-                $this->getPdoForSelect($useReadPdo)->prepare($query)
-            );
+                $this->bindValues($statement, $this->prepareBindings($bindings));
 
-            $this->bindValues($statement, $this->prepareBindings($bindings));
+                $statement->execute();
 
-            $statement->execute();
-
-            return $statement->fetchAll();
+                return $statement->fetchAll();
+            }
         });
     }
 
@@ -375,27 +384,40 @@ class Connection implements ConnectionInterface
                 return [];
             }
 
-            // First we will create a statement for the query. Then, we will set the fetch
-            // mode and prepare the bindings for the query. Once that's done we will be
-            // ready to execute the query against the database and return the cursor.
-            $statement = $this->prepared($this->getPdoForSelect($useReadPdo)
-                              ->prepare($query));
+            if($this->usingFirebird15()){
+                $conn = $this->getInterbaseConnection();
+                $query = $this->createInterbaseQuery($conn, $query, $bindings);
+                return $query;
+            } else {
+                // First we will create a statement for the query. Then, we will set the fetch
+                // mode and prepare the bindings for the query. Once that's done we will be
+                // ready to execute the query against the database and return the cursor.
+                $statement = $this->prepared($this->getPdoForSelect($useReadPdo)
+                    ->prepare($query));
 
-            $this->bindValues(
-                $statement, $this->prepareBindings($bindings)
-            );
+                $this->bindValues(
+                    $statement, $this->prepareBindings($bindings)
+                );
 
-            // Next, we'll execute the query against the database and return the statement
-            // so we can return the cursor. The cursor will use a PHP generator to give
-            // back one row at a time without using a bunch of memory to render them.
-            $statement->execute();
+                // Next, we'll execute the query against the database and return the statement
+                // so we can return the cursor. The cursor will use a PHP generator to give
+                // back one row at a time without using a bunch of memory to render them.
+                $statement->execute();
 
-            return $statement;
+                return $statement;
+            }
         });
 
-        while ($record = $statement->fetch()) {
-            yield $record;
+        if($this->usingFirebird15()){
+            while ($record = ibase_fetch_object($statement)){
+                yield $record;
+            }
+        } else {
+            while ($record = $statement->fetch()) {
+                yield $record;
+            }
         }
+
     }
 
     /**
@@ -475,14 +497,18 @@ class Connection implements ConnectionInterface
             if ($this->pretending()) {
                 return true;
             }
+            if($this->usingFirebird15()){
+                $conn = $this->getInterbaseConnection();
+                return $this->getInterbaseStatement($conn, $query, $bindings);
+            } else {
+                $statement = $this->getPdo()->prepare($query);
 
-            $statement = $this->getPdo()->prepare($query);
+                $this->bindValues($statement, $this->prepareBindings($bindings));
 
-            $this->bindValues($statement, $this->prepareBindings($bindings));
+                $this->recordsHaveBeenModified();
 
-            $this->recordsHaveBeenModified();
-
-            return $statement->execute();
+                return $statement->execute();
+            }
         });
     }
 
@@ -500,20 +526,25 @@ class Connection implements ConnectionInterface
                 return 0;
             }
 
-            // For update or delete statements, we want to get the number of rows affected
-            // by the statement and return that back to the developer. We'll first need
-            // to execute the statement and then we'll use PDO to fetch the affected.
-            $statement = $this->getPdo()->prepare($query);
+            if($this->usingFirebird15()){
+                $conn = $this->getInterbaseConnection();
+                return $this->getInterbaseStatement($conn, $query, $bindings);
+            } else {
+                // For update or delete statements, we want to get the number of rows affected
+                // by the statement and return that back to the developer. We'll first need
+                // to execute the statement and then we'll use PDO to fetch the affected.
+                $statement = $this->getPdo()->prepare($query);
 
-            $this->bindValues($statement, $this->prepareBindings($bindings));
+                $this->bindValues($statement, $this->prepareBindings($bindings));
 
-            $statement->execute();
+                $statement->execute();
 
-            $this->recordsHaveBeenModified(
-                ($count = $statement->rowCount()) > 0
-            );
+                $this->recordsHaveBeenModified(
+                    ($count = $statement->rowCount()) > 0
+                );
+                return $count;
+            }
 
-            return $count;
         });
     }
 
@@ -685,9 +716,9 @@ class Connection implements ConnectionInterface
             return $callback($query, $bindings);
         }
 
-        // If an exception occurs when attempting to run a query, we'll format the error
-        // message to include the bindings with SQL, which will make this exception a
-        // lot more helpful to the developer instead of just the database's errors.
+            // If an exception occurs when attempting to run a query, we'll format the error
+            // message to include the bindings with SQL, which will make this exception a
+            // lot more helpful to the developer instead of just the database's errors.
         catch (Exception $e) {
             throw new QueryException(
                 $query, $this->prepareBindings($bindings), $e
@@ -1405,5 +1436,59 @@ class Connection implements ConnectionInterface
     public static function getResolver($driver)
     {
         return static::$resolvers[$driver] ?? null;
+    }
+
+    /**
+     * @return resource
+     * @throws Exception
+     */
+    private function getInterbaseConnection(){
+        $hostname = env("DB_HOST");
+        $port = env("DB_PORT");
+        $databasePath = env("DB_DATABASE");
+        $username = env("DB_USERNAME");
+        $password = env("DB_PASSWORD");
+        $charset = env("DB_CHARSET", "WIN1252");
+        $dialect = env("DB_DIALECT", "3");
+
+        $conn = ibase_pconnect("$hostname/$port:$databasePath", $username, $password, $charset, 3, $dialect);
+        if(!$conn){
+            throw new Exception("Erro ao criar conexão com banco de dados (Modo legado)");
+        }
+        return $conn;
+    }
+
+    /**
+     * @return bool
+     */
+    private function usingFirebird15(){
+        return env("DB_VERSION", "1.5") == "1.5";
+    }
+
+
+    /**
+     * @param $conn
+     * @param $query
+     * @param $bindings
+     * @return bool|mixed|resource
+     * @throws Exception
+     */
+    private function getInterbaseQuery($conn, $query, $bindings){
+        $res = count($bindings) ? call_user_func_array("ibase_query", array_merge([$conn, $query], $bindings)) : ibase_query($conn, $query);
+        if(!$res){
+            throw new Exception(ibase_errmsg());
+        }
+        return $res;
+    }
+
+    /**
+     * @param $conn
+     * @param $query
+     * @param $bindings
+     * @return resource
+     * @throws Exception
+     */
+    private function getInterbaseStatement($conn, $query, $bindings){
+        return $this->getInterbaseQuery($conn, $query, $bindings);
     }
 }
