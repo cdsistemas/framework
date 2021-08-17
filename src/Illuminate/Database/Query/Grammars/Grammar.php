@@ -71,7 +71,7 @@ class Grammar extends BaseGrammar
 
         $query->columns = $original;
 
-        return "Select $sql";
+        return "$sql";
     }
 
     /**
