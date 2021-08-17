@@ -4,6 +4,7 @@ namespace Illuminate\Tests\Console\Scheduling;
 
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\EventMutex;
+use Illuminate\Support\Carbon;
 use Mockery as m;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +17,8 @@ class FrequencyTest extends TestCase
 
     protected function setUp(): void
     {
+        Carbon::setTestNow();
+
         $this->event = new Event(
             m::mock(EventMutex::class),
             'php foo'
@@ -52,6 +55,11 @@ class FrequencyTest extends TestCase
     public function testTwiceDaily()
     {
         $this->assertSame('0 3,15 * * *', $this->event->twiceDaily(3, 15)->getExpression());
+    }
+
+    public function testTwiceDailyAt()
+    {
+        $this->assertSame('5 3,15 * * *', $this->event->twiceDailyAt(3, 15, 5)->getExpression());
     }
 
     public function testWeekly()
@@ -91,12 +99,19 @@ class FrequencyTest extends TestCase
 
     public function testLastDayOfMonth()
     {
+        Carbon::setTestNow('2020-10-10 10:10:10');
+
         $this->assertSame('0 0 31 * *', $this->event->lastDayOfMonth()->getExpression());
     }
 
     public function testTwiceMonthly()
     {
         $this->assertSame('0 0 1,16 * *', $this->event->twiceMonthly(1, 16)->getExpression());
+    }
+
+    public function testTwiceMonthlyAtTime()
+    {
+        $this->assertSame('30 1 1,16 * *', $this->event->twiceMonthly(1, 16, '1:30')->getExpression());
     }
 
     public function testMonthlyOnWithMinutes()
@@ -117,6 +132,11 @@ class FrequencyTest extends TestCase
     public function testWeekdays()
     {
         $this->assertSame('* * * * 1-5', $this->event->weekdays()->getExpression());
+    }
+
+    public function testWeekends()
+    {
+        $this->assertSame('* * * * 6,0', $this->event->weekends()->getExpression());
     }
 
     public function testSundays()

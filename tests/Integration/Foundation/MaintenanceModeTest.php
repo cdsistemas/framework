@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Cookie;
  */
 class MaintenanceModeTest extends TestCase
 {
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         @unlink(storage_path('framework/down'));
     }
@@ -23,6 +23,7 @@ class MaintenanceModeTest extends TestCase
     {
         file_put_contents(storage_path('framework/down'), json_encode([
             'retry' => 60,
+            'refresh' => 60,
         ]));
 
         Route::get('/foo', function () {
@@ -33,6 +34,7 @@ class MaintenanceModeTest extends TestCase
 
         $response->assertStatus(503);
         $response->assertHeader('Retry-After', '60');
+        $response->assertHeader('Refresh', '60');
     }
 
     public function testMaintenanceModeCanHaveCustomStatus()

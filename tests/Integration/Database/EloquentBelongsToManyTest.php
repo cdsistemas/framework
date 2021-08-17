@@ -334,7 +334,7 @@ class EloquentBelongsToManyTest extends DatabaseTestCase
 
         $post = Post::create(['title' => Str::random()]);
 
-        $post->tags()->firstOrFail(['id' => 10]);
+        $post->tags()->firstOrFail(['id']);
     }
 
     public function testFindMethod()
@@ -349,7 +349,7 @@ class EloquentBelongsToManyTest extends DatabaseTestCase
         $this->assertEquals($tag2->name, $post->tags()->find($tag2->id)->name);
         $this->assertCount(0, $post->tags()->findMany([]));
         $this->assertCount(2, $post->tags()->findMany([$tag->id, $tag2->id]));
-        $this->assertCount(0, $post->tags()->findMany(new Collection()));
+        $this->assertCount(0, $post->tags()->findMany(new Collection));
         $this->assertCount(2, $post->tags()->findMany(new Collection([$tag->id, $tag2->id])));
     }
 
@@ -904,6 +904,28 @@ class EloquentBelongsToManyTest extends DatabaseTestCase
 
         $user->postsWithCustomPivot()->updateExistingPivot($post2->uuid, ['is_draft' => 0]);
         $this->assertEquals(0, $user->postsWithCustomPivot()->first()->pivot->is_draft);
+    }
+
+    public function testOrderByPivotMethod()
+    {
+        $tag1 = Tag::create(['name' => Str::random()]);
+        $tag2 = Tag::create(['name' => Str::random()]);
+        $tag3 = Tag::create(['name' => Str::random()]);
+        $tag4 = Tag::create(['name' => Str::random()]);
+        $post = Post::create(['title' => Str::random()]);
+
+        DB::table('posts_tags')->insert([
+            ['post_id' => $post->id, 'tag_id' => $tag1->id, 'flag' => 'foo3'],
+            ['post_id' => $post->id, 'tag_id' => $tag2->id, 'flag' => 'foo1'],
+            ['post_id' => $post->id, 'tag_id' => $tag3->id, 'flag' => 'foo4'],
+            ['post_id' => $post->id, 'tag_id' => $tag4->id, 'flag' => 'foo2'],
+        ]);
+
+        $relationTag1 = $post->tagsWithCustomExtraPivot()->orderByPivot('flag', 'asc')->first();
+        $this->assertEquals($relationTag1->getAttributes(), $tag2->getAttributes());
+
+        $relationTag2 = $post->tagsWithCustomExtraPivot()->orderByPivot('flag', 'desc')->first();
+        $this->assertEquals($relationTag2->getAttributes(), $tag3->getAttributes());
     }
 }
 

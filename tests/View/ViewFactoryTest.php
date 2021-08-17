@@ -7,6 +7,7 @@ use ErrorException;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher as DispatcherContract;
 use Illuminate\Contracts\View\Engine;
+use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\HtmlString;
@@ -87,6 +88,7 @@ class ViewFactoryTest extends TestCase
         $factory->addExtension('php', 'php');
         $view = $factory->first(['bar', 'view'], ['foo' => 'bar'], ['baz' => 'boom']);
 
+        $this->assertInstanceOf(ViewContract::class, $view);
         $this->assertSame($engine, $view->getEngine());
         $this->assertSame($_SERVER['__test.view'], $view);
 
@@ -441,6 +443,27 @@ class ViewFactoryTest extends TestCase
         $this->assertSame('hi, Hello!', $factory->yieldPushContent('foo'));
     }
 
+    public function testSingleStackPrepend()
+    {
+        $factory = $this->getFactory();
+        $factory->startPrepend('foo');
+        echo 'hi';
+        $factory->stopPrepend();
+        $this->assertSame('hi', $factory->yieldPushContent('foo'));
+    }
+
+    public function testMultipleStackPrepend()
+    {
+        $factory = $this->getFactory();
+        $factory->startPrepend('foo');
+        echo ', Hello!';
+        $factory->stopPrepend();
+        $factory->startPrepend('foo');
+        echo 'hi';
+        $factory->stopPrepend();
+        $this->assertSame('hi, Hello!', $factory->yieldPushContent('foo'));
+    }
+
     public function testSessionAppending()
     {
         $factory = $this->getFactory();
@@ -640,7 +663,8 @@ class ViewFactoryTest extends TestCase
     {
         $factory = $this->getFactory();
 
-        $data = (new class {
+        $data = (new class
+        {
             public function generate()
             {
                 for ($count = 0; $count < 3; $count++) {
