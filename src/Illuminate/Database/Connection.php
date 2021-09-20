@@ -797,11 +797,11 @@ class Connection implements ConnectionInterface
      */
     public function reconnect()
     {
-        if (is_callable($this->reconnector)) {
-            return call_user_func($this->reconnector, $this);
-        }
-
-        throw new LogicException('Lost connection and no reconnector available.');
+//        if (is_callable($this->reconnector)) {
+//            return call_user_func($this->reconnector, $this);
+//        }
+//
+//        throw new LogicException('Lost connection and no reconnector available.');
     }
 
     /**
@@ -811,9 +811,9 @@ class Connection implements ConnectionInterface
      */
     protected function reconnectIfMissingConnection()
     {
-        if (is_null($this->pdo)) {
-            $this->reconnect();
-        }
+//        if (is_null($this->pdo)) {
+//            $this->reconnect();
+//        }
     }
 
     /**
@@ -823,6 +823,10 @@ class Connection implements ConnectionInterface
      */
     public function disconnect()
     {
+        if($this->isCodeIgniter()){
+            $CI = &get_instance();
+            $CI->db->close();
+        }
         $this->setPdo(null)->setReadPdo(null);
     }
 
