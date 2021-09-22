@@ -442,32 +442,15 @@ class Builder
      */
     public function get($columns = ['*'])
     {
-        $params = $this->query->getBindings();
-        $sql = $this->query->toSql();
+
         $builder = $this->applyScopes();
-        if(function_exists("get_instance")){
-            $CI = &get_instance();
-            $conn = $CI->db->conn_id;
-            $args = array_merge([$conn, $sql], $params);
-            $res = call_user_func_array("ibase_query", $args);
-            $models = [];
-            while ($model = ibase_fetch_object($res)){
-                $models[] = $model;
-            }
-            $models = $this->hydrate($models);
-            return $models;
-        } else {
-            // If we actually found models we will also eager load any relationships that
-            // have been specified as needing to be eager loaded, which will solve the
-            // n+1 query issue for the developers to avoid running a lot of queries.
-            if (count($models = $builder->getModels($columns)) > 0) {
-                $models = $builder->eagerLoadRelations($models);
-            }
-            return $builder->getModel()->newCollection($models);
+        // If we actually found models we will also eager load any relationships that
+        // have been specified as needing to be eager loaded, which will solve the
+        // n+1 query issue for the developers to avoid running a lot of queries.
+        if (count($models = $builder->getModels($columns)) > 0) {
+            $models = $builder->eagerLoadRelations($models);
         }
-
-
-
+        return $builder->getModel()->newCollection($models);
     }
 
     /**
