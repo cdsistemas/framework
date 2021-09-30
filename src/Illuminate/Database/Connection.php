@@ -347,11 +347,14 @@ class Connection implements ConnectionInterface
             if($this->usingFirebird15()){
                 $conn = $this->getInterbaseConnection();
                 $query = $this->getInterbaseQuery($conn, $query, $bindings);
-                $return = [];
-                while ($q = ibase_fetch_object($query)){
-                    $return[] = $q;
+                if(is_resource($query)){
+                    $return = [];
+                    while ($q = ibase_fetch_object($query)){
+                        $return[] = $q;
+                    }
+                    return $return;
                 }
-                return $return;
+                return $query;
             } else {
                 // For select statements, we'll simply execute the query and return an array
                 // of the database result set. Each element in the array will be a single
