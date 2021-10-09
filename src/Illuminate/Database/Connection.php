@@ -1443,13 +1443,14 @@ class Connection implements ConnectionInterface
      * @throws Exception
      */
     private function getInterbaseConnection(){
-        $hostname = env("DB_HOST");
-        $port = env("DB_PORT");
-        $databasePath = env("DB_DATABASE");
-        $username = env("DB_USERNAME");
-        $password = env("DB_PASSWORD");
-        $charset = env("DB_CHARSET", "WIN1252");
-        $dialect = env("DB_DIALECT", "3");
+        $config = $this->config;
+        $hostname = $config["host"];
+        $port = @$config["port"] ?: "3050";
+        $databasePath = $config["database"];
+        $username = @$config["username"] ?: "SYSDBA";
+        $password = @$config["password"] ?: "masterkey";
+        $charset = @$config["charset"] ?: "WIN1252";
+        $dialect = @$config["dialect"]?: "3";
 
         $conn = ibase_pconnect("$hostname/$port:$databasePath", $username, $password, $charset, 3, $dialect);
         if(!$conn){
