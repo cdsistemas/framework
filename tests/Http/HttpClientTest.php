@@ -36,6 +36,11 @@ class HttpClientTest extends TestCase
         $this->factory = new Factory;
     }
 
+    protected function tearDown(): void
+    {
+        m::close();
+    }
+
     public function testStubbedResponsesAreReturnedAfterFaking()
     {
         $this->factory->fake();
@@ -287,6 +292,23 @@ class HttpClientTest extends TestCase
         $this->factory->assertSent(function (Request $request) {
             return $request->url() === 'http://foo.com/json' &&
                 $request->hasHeader('User-Agent', 'Laravel');
+        });
+    }
+
+    public function testItOnlySendsOneUserAgentHeader()
+    {
+        $this->factory->fake();
+
+        $this->factory->withUserAgent('Laravel')
+            ->withUserAgent('FooBar')
+            ->post('http://foo.com/json');
+
+        $this->factory->assertSent(function (Request $request) {
+            $userAgent = $request->header('User-Agent');
+
+            return $request->url() === 'http://foo.com/json' &&
+                count($userAgent) === 1 &&
+                $userAgent[0] === 'FooBar';
         });
     }
 
@@ -936,8 +958,6 @@ class HttpClientTest extends TestCase
         $factory->post('https://example.com');
         $factory->patch('https://example.com');
         $factory->delete('https://example.com');
-
-        m::close();
     }
 
     public function testTheRequestSendingAndResponseReceivedEventsAreFiredWhenARequestIsSentAsync()
@@ -957,8 +977,6 @@ class HttpClientTest extends TestCase
                 $pool->delete('https://example.com'),
             ];
         });
-
-        m::close();
     }
 
     public function testTheTransferStatsAreCalledSafelyWhenFakingTheRequest()
@@ -988,13 +1006,12 @@ class HttpClientTest extends TestCase
         $events->shouldReceive('dispatch')->once()->with(m::type(ResponseReceived::class));
 
         $factory = new Factory($events);
+        $factory->fake(['example.com' => $factory->response('foo', 200)]);
 
         $client = $factory->timeout(10);
         $clonedClient = clone $client;
 
         $clonedClient->get('https://example.com');
-
-        m::close();
     }
 
     public function testRequestIsMacroable()

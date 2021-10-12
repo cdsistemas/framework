@@ -23,7 +23,7 @@ class BladeComponentTagCompilerTest extends AbstractBladeTestCase
         $result = $this->compiler()->compileSlots('<x-slot name="foo">
 </x-slot>');
 
-        $this->assertSame("@slot('foo') \n".' @endslot', trim($result));
+        $this->assertSame("@slot('foo', null, []) \n".' @endslot', trim($result));
     }
 
     public function testDynamicSlotsCanBeCompiled()
@@ -31,7 +31,23 @@ class BladeComponentTagCompilerTest extends AbstractBladeTestCase
         $result = $this->compiler()->compileSlots('<x-slot :name="$foo">
 </x-slot>');
 
-        $this->assertSame("@slot(\$foo) \n".' @endslot', trim($result));
+        $this->assertSame("@slot(\$foo, null, []) \n".' @endslot', trim($result));
+    }
+
+    public function testSlotsWithAttributesCanBeCompiled()
+    {
+        $result = $this->compiler()->compileSlots('<x-slot name="foo" class="font-bold">
+</x-slot>');
+
+        $this->assertSame("@slot('foo', null, ['class' => 'font-bold']) \n".' @endslot', trim($result));
+    }
+
+    public function testSlotsWithDynamicAttributesCanBeCompiled()
+    {
+        $result = $this->compiler()->compileSlots('<x-slot name="foo" :class="$classes">
+</x-slot>');
+
+        $this->assertSame("@slot('foo', null, ['class' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute(\$classes)]) \n".' @endslot', trim($result));
     }
 
     public function testBasicComponentParsing()
@@ -229,6 +245,22 @@ class BladeComponentTagCompilerTest extends AbstractBladeTestCase
         $result = $this->compiler()->compileTags('<x-anonymous-component :name="\'Taylor\'" :age="31" wire:model="foo" />');
 
         $this->assertSame("##BEGIN-COMPONENT-CLASS##@component('Illuminate\View\AnonymousComponent', 'anonymous-component', ['view' => 'components.anonymous-component','data' => ['name' => 'Taylor','age' => 31,'wire:model' => 'foo']])
+<?php \$component->withAttributes(['name' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute('Taylor'),'age' => 31,'wire:model' => 'foo']); ?>\n".
+'@endComponentClass##END-COMPONENT-CLASS##', trim($result));
+    }
+
+    public function testClasslessComponentsWithIndexView()
+    {
+        $container = new Container;
+        $container->instance(Application::class, $app = Mockery::mock(Application::class));
+        $container->instance(Factory::class, $factory = Mockery::mock(Factory::class));
+        $app->shouldReceive('getNamespace')->andReturn('App\\');
+        $factory->shouldReceive('exists')->andReturn(false, true);
+        Container::setInstance($container);
+
+        $result = $this->compiler()->compileTags('<x-anonymous-component :name="\'Taylor\'" :age="31" wire:model="foo" />');
+
+        $this->assertSame("##BEGIN-COMPONENT-CLASS##@component('Illuminate\View\AnonymousComponent', 'anonymous-component', ['view' => 'components.anonymous-component.index','data' => ['name' => 'Taylor','age' => 31,'wire:model' => 'foo']])
 <?php \$component->withAttributes(['name' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute('Taylor'),'age' => 31,'wire:model' => 'foo']); ?>\n".
 '@endComponentClass##END-COMPONENT-CLASS##', trim($result));
     }

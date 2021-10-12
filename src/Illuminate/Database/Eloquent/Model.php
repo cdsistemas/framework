@@ -167,6 +167,13 @@ abstract class Model implements Arrayable, ArrayAccess, HasBroadcastChannel, Jso
     protected static $lazyLoadingViolationCallback;
 
     /**
+     * Indicates if broadcasting is currently enabled.
+     *
+     * @var bool
+     */
+    protected static $isBroadcasting = true;
+
+    /**
      * The name of the "created at" column.
      *
      * @var string|null
@@ -378,6 +385,25 @@ abstract class Model implements Arrayable, ArrayAccess, HasBroadcastChannel, Jso
     }
 
     /**
+     * Execute a callback without broadcasting any model events for all model types.
+     *
+     * @param  callable  $callback
+     * @return mixed
+     */
+    public static function withoutBroadcasting(callable $callback)
+    {
+        $isBroadcasting = static::$isBroadcasting;
+
+        static::$isBroadcasting = false;
+
+        try {
+            return $callback();
+        } finally {
+            static::$isBroadcasting = $isBroadcasting;
+        }
+    }
+
+    /**
      * Fill the model with an array of attributes.
      *
      * @param  array  $attributes
@@ -432,6 +458,19 @@ abstract class Model implements Arrayable, ArrayAccess, HasBroadcastChannel, Jso
         }
 
         return $this->getTable().'.'.$column;
+    }
+
+    /**
+     * Qualify the given columns with the model's table.
+     *
+     * @param  array  $columns
+     * @return array
+     */
+    public function qualifyColumns($columns)
+    {
+        return collect($columns)->map(function ($column) {
+            return $this->qualifyColumn($column);
+        })->all();
     }
 
     /**
@@ -839,6 +878,24 @@ abstract class Model implements Arrayable, ArrayAccess, HasBroadcastChannel, Jso
     }
 
     /**
+     * Update the model in the database within a transaction.
+     *
+     * @param  array  $attributes
+     * @param  array  $options
+     * @return bool
+     *
+     * @throws \Throwable
+     */
+    public function updateOrFail(array $attributes = [], array $options = [])
+    {
+        if (! $this->exists) {
+            return false;
+        }
+
+        return $this->fill($attributes)->saveOrFail($options);
+    }
+
+    /**
      * Update the model in the database without raising any events.
      *
      * @param  array  $attributes
@@ -945,7 +1002,7 @@ abstract class Model implements Arrayable, ArrayAccess, HasBroadcastChannel, Jso
     }
 
     /**
-     * Save the model to the database using transaction.
+     * Save the model to the database within a transaction.
      *
      * @param  array  $options
      * @return bool
@@ -1202,6 +1259,24 @@ abstract class Model implements Arrayable, ArrayAccess, HasBroadcastChannel, Jso
         $this->fireModelEvent('deleted', false);
 
         return true;
+    }
+
+    /**
+     * Delete the model from the database within a transaction.
+     *
+     * @return bool|null
+     *
+     * @throws \Throwable
+     */
+    public function deleteOrFail()
+    {
+        if (! $this->exists) {
+            return false;
+        }
+
+        return $this->getConnection()->transaction(function () {
+            return $this->delete();
+        });
     }
 
     /**

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Route;
 use Illuminate\Session\Store;
+use Illuminate\Support\Collection;
 use Mockery as m;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -502,6 +503,26 @@ class HttpRequestTest extends TestCase
         $this->assertFalse($request->boolean('some_undefined_key'));
     }
 
+    public function testCollectMethod()
+    {
+        $request = Request::create('/', 'GET', ['users' => [1, 2, 3]]);
+
+        $this->assertInstanceOf(Collection::class, $request->collect('users'));
+        $this->assertTrue($request->collect('developers')->isEmpty());
+        $this->assertEquals([1, 2, 3], $request->collect('users')->all());
+        $this->assertEquals(['users' => [1, 2, 3]], $request->collect()->all());
+
+        $request = Request::create('/', 'GET', ['text-payload']);
+        $this->assertEquals(['text-payload'], $request->collect()->all());
+
+        $request = Request::create('/', 'GET', ['email' => 'test@example.com']);
+        $this->assertEquals(['test@example.com'], $request->collect('email')->all());
+
+        $request = Request::create('/', 'GET', []);
+        $this->assertInstanceOf(Collection::class, $request->collect());
+        $this->assertTrue($request->collect()->isEmpty());
+    }
+
     public function testArrayAccess()
     {
         $request = Request::create('/', 'GET', ['name' => null, 'foo' => ['bar' => null, 'baz' => '']]);
@@ -693,6 +714,15 @@ class HttpRequestTest extends TestCase
         $this->assertSame('foo', $request->header('do-this'));
         $all = $request->header(null);
         $this->assertSame('foo', $all['do-this'][0]);
+    }
+
+    public function testBearerTokenMethod()
+    {
+        $request = Request::create('/', 'GET', [], [], [], ['HTTP_AUTHORIZATION' => 'Bearer fooBearerbar']);
+        $this->assertSame('fooBearerbar', $request->bearerToken());
+
+        $request = Request::create('/', 'GET', [], [], [], ['HTTP_AUTHORIZATION' => 'Basic foo, Bearer bar']);
+        $this->assertSame('bar', $request->bearerToken());
     }
 
     public function testJSONMethod()

@@ -2,8 +2,9 @@
 
 namespace Illuminate\Tests\Support;
 
-use Illuminate\Collections\MultipleItemsFoundException;
+use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\LazyCollection;
+use Illuminate\Support\MultipleItemsFoundException;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
@@ -466,6 +467,25 @@ class SupportLazyCollectionIsLazyTest extends TestCase
     {
         $this->assertEnumerates(5, function ($collection) {
             $collection->has(4);
+        });
+
+        $this->assertEnumeratesOnce(function ($collection) {
+            $collection->has('non-existent');
+        });
+    }
+
+    public function testHasAnyIsLazy()
+    {
+        $this->assertEnumerates(5, function ($collection) {
+            $collection->hasAny(4);
+        });
+
+        $this->assertEnumerates(2, function ($collection) {
+            $collection->hasAny([1, 4]);
+        });
+
+        $this->assertEnumeratesOnce(function ($collection) {
+            $collection->hasAny(['non', 'existent']);
         });
     }
 
@@ -983,6 +1003,35 @@ class SupportLazyCollectionIsLazyTest extends TestCase
 
         $this->assertEnumeratesOnce(function ($collection) {
             $collection->slice(-2, 2)->all();
+        });
+    }
+
+    public function testFindFirstOrFailIsLazy()
+    {
+        $this->assertEnumerates(1, function ($collection) {
+            $collection->firstOrFail();
+        });
+
+        $this->assertEnumerates(1, function ($collection) {
+            $collection->firstOrFail(function ($item) {
+                return $item === 1;
+            });
+        });
+
+        $this->assertEnumerates(100, function ($collection) {
+            try {
+                $collection->firstOrFail(function ($item) {
+                    return $item === 101;
+                });
+            } catch (ItemNotFoundException $e) {
+                //
+            }
+        });
+
+        $this->assertEnumerates(2, function ($collection) {
+            $collection->firstOrFail(function ($item) {
+                return $item % 2 === 0;
+            });
         });
     }
 

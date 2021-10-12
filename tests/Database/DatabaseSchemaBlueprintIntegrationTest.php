@@ -57,20 +57,35 @@ class DatabaseSchemaBlueprintIntegrationTest extends TestCase
 
         $queries = $blueprint->toSql($this->db->connection(), new SQLiteGrammar);
 
+        // Expect one of the following two query sequences to be present...
         $expected = [
-            'CREATE TEMPORARY TABLE __temp__users AS SELECT name, age FROM users',
-            'DROP TABLE users',
-            'CREATE TABLE users (name VARCHAR(255) NOT NULL COLLATE BINARY, age INTEGER NOT NULL)',
-            'INSERT INTO users (name, age) SELECT name, age FROM __temp__users',
-            'DROP TABLE __temp__users',
-            'CREATE TEMPORARY TABLE __temp__users AS SELECT name, age FROM users',
-            'DROP TABLE users',
-            'CREATE TABLE users (age VARCHAR(255) NOT NULL COLLATE BINARY, first_name VARCHAR(255) NOT NULL)',
-            'INSERT INTO users (first_name, age) SELECT name, age FROM __temp__users',
-            'DROP TABLE __temp__users',
+            [
+                'CREATE TEMPORARY TABLE __temp__users AS SELECT name, age FROM users',
+                'DROP TABLE users',
+                'CREATE TABLE users (name VARCHAR(255) NOT NULL COLLATE BINARY, age INTEGER NOT NULL)',
+                'INSERT INTO users (name, age) SELECT name, age FROM __temp__users',
+                'DROP TABLE __temp__users',
+                'CREATE TEMPORARY TABLE __temp__users AS SELECT name, age FROM users',
+                'DROP TABLE users',
+                'CREATE TABLE users (age VARCHAR(255) NOT NULL COLLATE BINARY, first_name VARCHAR(255) NOT NULL)',
+                'INSERT INTO users (first_name, age) SELECT name, age FROM __temp__users',
+                'DROP TABLE __temp__users',
+            ],
+            [
+                'CREATE TEMPORARY TABLE __temp__users AS SELECT name, age FROM users',
+                'DROP TABLE users',
+                'CREATE TABLE users (name VARCHAR(255) NOT NULL COLLATE BINARY, age INTEGER NOT NULL)',
+                'INSERT INTO users (name, age) SELECT name, age FROM __temp__users',
+                'DROP TABLE __temp__users',
+                'CREATE TEMPORARY TABLE __temp__users AS SELECT name, age FROM users',
+                'DROP TABLE users',
+                'CREATE TABLE users (first_name VARCHAR(255) NOT NULL, age VARCHAR(255) NOT NULL COLLATE BINARY)',
+                'INSERT INTO users (first_name, age) SELECT name, age FROM __temp__users',
+                'DROP TABLE __temp__users',
+            ],
         ];
 
-        $this->assertEquals($expected, $queries);
+        $this->assertTrue(in_array($queries, $expected));
     }
 
     public function testChangingColumnWithCollationWorks()

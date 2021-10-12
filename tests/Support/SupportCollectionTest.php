@@ -7,13 +7,13 @@ use ArrayIterator;
 use ArrayObject;
 use CachingIterator;
 use Exception;
-use Illuminate\Collections\ItemNotFoundException;
-use Illuminate\Collections\MultipleItemsFoundException;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\ItemNotFoundException;
 use Illuminate\Support\LazyCollection;
+use Illuminate\Support\MultipleItemsFoundException;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use JsonSerializable;
@@ -22,6 +22,7 @@ use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use stdClass;
 use Symfony\Component\VarDumper\VarDumper;
+use UnexpectedValueException;
 
 class SupportCollectionTest extends TestCase
 {
@@ -86,7 +87,7 @@ class SupportCollectionTest extends TestCase
     /**
      * @dataProvider collectionClassProvider
      */
-    public function testSoleThrowsExceptionIfNoItemsExists($collection)
+    public function testSoleThrowsExceptionIfNoItemsExist($collection)
     {
         $this->expectException(ItemNotFoundException::class);
 
@@ -129,7 +130,7 @@ class SupportCollectionTest extends TestCase
     /**
      * @dataProvider collectionClassProvider
      */
-    public function testSoleThrowsExceptionIfNoItemsExistsWithCallback($collection)
+    public function testSoleThrowsExceptionIfNoItemsExistWithCallback($collection)
     {
         $this->expectException(ItemNotFoundException::class);
 
@@ -152,6 +153,113 @@ class SupportCollectionTest extends TestCase
         $data->sole(function ($value) {
             return $value === 'bar';
         });
+    }
+
+    /**
+     * @dataProvider collectionClassProvider
+     */
+    public function testFirstOrFailReturnsFirstItemInCollection($collection)
+    {
+        $collection = new $collection([
+            ['name' => 'foo'],
+            ['name' => 'bar'],
+        ]);
+
+        $this->assertSame(['name' => 'foo'], $collection->where('name', 'foo')->firstOrFail());
+        $this->assertSame(['name' => 'foo'], $collection->firstOrFail('name', '=', 'foo'));
+        $this->assertSame(['name' => 'foo'], $collection->firstOrFail('name', 'foo'));
+    }
+
+    /**
+     * @dataProvider collectionClassProvider
+     */
+    public function testFirstOrFailThrowsExceptionIfNoItemsExist($collection)
+    {
+        $this->expectException(ItemNotFoundException::class);
+
+        $collection = new $collection([
+            ['name' => 'foo'],
+            ['name' => 'bar'],
+        ]);
+
+        $collection->where('name', 'INVALID')->firstOrFail();
+    }
+
+    /**
+     * @dataProvider collectionClassProvider
+     */
+    public function testFirstOrFailDoesntThrowExceptionIfMoreThanOneItemExists($collection)
+    {
+        $collection = new $collection([
+            ['name' => 'foo'],
+            ['name' => 'foo'],
+            ['name' => 'bar'],
+        ]);
+
+        $this->assertSame(['name' => 'foo'], $collection->where('name', 'foo')->firstOrFail());
+    }
+
+    /**
+     * @dataProvider collectionClassProvider
+     */
+    public function testFirstOrFailReturnsFirstItemInCollectionIfOnlyOneExistsWithCallback($collection)
+    {
+        $data = new $collection(['foo', 'bar', 'baz']);
+        $result = $data->firstOrFail(function ($value) {
+            return $value === 'bar';
+        });
+        $this->assertSame('bar', $result);
+    }
+
+    /**
+     * @dataProvider collectionClassProvider
+     */
+    public function testFirstOrFailThrowsExceptionIfNoItemsExistWithCallback($collection)
+    {
+        $this->expectException(ItemNotFoundException::class);
+
+        $data = new $collection(['foo', 'bar', 'baz']);
+
+        $data->firstOrFail(function ($value) {
+            return $value === 'invalid';
+        });
+    }
+
+    /**
+     * @dataProvider collectionClassProvider
+     */
+    public function testFirstOrFailDoesntThrowExceptionIfMoreThanOneItemExistsWithCallback($collection)
+    {
+        $data = new $collection(['foo', 'bar', 'bar']);
+
+        $this->assertSame(
+            'bar',
+            $data->firstOrFail(function ($value) {
+                return $value === 'bar';
+            })
+        );
+    }
+
+    /**
+     * @dataProvider collectionClassProvider
+     */
+    public function testFirstOrFailStopsIteratingAtFirstMatch($collection)
+    {
+        $data = new $collection([
+            function () {
+                return false;
+            },
+            function () {
+                return true;
+            },
+            function () {
+                throw new Exception();
+            },
+        ]);
+
+        $this->assertNotNull($data->firstOrFail(function ($callback) {
+            return $callback();
+        }));
     }
 
     /**
@@ -1968,6 +2076,20 @@ class SupportCollectionTest extends TestCase
         $this->assertFalse($data->has('third'));
         $this->assertTrue($data->has(['first', 'second']));
         $this->assertFalse($data->has(['third', 'first']));
+    }
+
+    /**
+     * @dataProvider collectionClassProvider
+     */
+    public function testHasAny($collection)
+    {
+        $data = new $collection(['id' => 1, 'first' => 'Hello', 'second' => 'World']);
+
+        $this->assertTrue($data->hasAny('first'));
+        $this->assertFalse($data->hasAny('third'));
+        $this->assertTrue($data->hasAny(['first', 'second']));
+        $this->assertTrue($data->hasAny(['first', 'fourth']));
+        $this->assertFalse($data->hasAny(['third', 'fourth']));
     }
 
     /**
@@ -3793,6 +3915,40 @@ class SupportCollectionTest extends TestCase
         $this->assertSame('foobarbazqux', $data->reduceWithKeys(function ($carry, $element, $key) {
             return $carry .= $key.$element;
         }));
+    }
+
+    /**
+     * @dataProvider collectionClassProvider
+     */
+    public function testReduceMany($collection)
+    {
+        $data = new $collection([-1, 0, 1, 2, 3, 4, 5]);
+
+        [$sum, $max, $min] = $data->reduceMany(function ($sum, $max, $min, $value) {
+            $sum += $value;
+            $max = max($max, $value);
+            $min = min($min, $value);
+
+            return [$sum, $max, $min];
+        }, 0, PHP_INT_MIN, PHP_INT_MAX);
+
+        $this->assertEquals(14, $sum);
+        $this->assertEquals(5, $max);
+        $this->assertEquals(-1, $min);
+    }
+
+    /**
+     * @dataProvider collectionClassProvider
+     */
+    public function testReduceManyThrowsAnExceptionIfReducerDoesNotReturnAnArray($collection)
+    {
+        $data = new $collection([1]);
+
+        $this->expectException(UnexpectedValueException::class);
+
+        $data->reduceMany(function () {
+            return false;
+        }, null);
     }
 
     /**
