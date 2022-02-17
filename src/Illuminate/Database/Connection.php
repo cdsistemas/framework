@@ -314,8 +314,8 @@ class Connection implements ConnectionInterface
             }
 
             if($this->isCodeIgniter()){
-                $sql = $this->cleanBindings($query, $bindings);
-                $results = $this->runLegacyStatement($sql)->result();
+//                $sql = $this->cleanBindings($query, $bindings);
+                $results = $this->runLegacySelect($query, $bindings);
                 return $results;
             }
             // For select statements, we'll simply execute the query and return an array
@@ -513,7 +513,7 @@ class Connection implements ConnectionInterface
                 return 0;
             }
             if($this->isCodeIgniter()){
-                return $this->runLegacyStatement($this->cleanBindings($query, $bindings));
+                return $this->runLegacyStatement($query, $bindings);
             }
 
             // For update or delete statements, we want to get the number of rows affected
@@ -1272,11 +1272,30 @@ class Connection implements ConnectionInterface
 
     /**
      * @param $sql
-     * @return mixed
+     * @param array $params
+     * @return array
      */
-    protected function runLegacyStatement($sql){
+    protected function runLegacyStatement($sql, $params = []){
         $CI = &get_instance();
-        return $CI->db->query($sql);
+        $conn = $CI->db->conn_id;
+        $res = call_user_func_array("ibase_query", array_merge([$conn, $sql], $params));
+        return $res;
+    }
+
+    /**
+     * @param $sql
+     * @param array $params
+     */
+    protected function runLegacySelect($sql, $params = []){
+        $CI = &get_instance();
+        $conn = $CI->db->conn_id;
+        $res = call_user_func_array("ibase_query", array_merge([$conn, $sql], $params));
+//        return $res;
+        $ret = [];
+        while ($x = ibase_fetch_object($res)){
+            $ret[] = $x;
+        }
+        return $ret;
     }
 
     /**
