@@ -1289,8 +1289,11 @@ class Connection implements ConnectionInterface
     protected function runLegacySelect($sql, $params = []){
         $CI = &get_instance();
         $conn = $CI->db->conn_id;
-        $res = call_user_func_array("ibase_query", array_merge([$conn, $sql], $params));
-//        return $res;
+        $res = @call_user_func_array("ibase_query", array_merge([$conn, $sql], $params));
+        if(!$res){
+            $sql_compiled = $this->cleanBindings($sql, $params);
+            return $CI->db->query($sql_compiled)->result();
+        }
         $ret = [];
         while ($x = ibase_fetch_object($res)){
             $ret[] = $x;
