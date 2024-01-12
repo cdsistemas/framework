@@ -316,6 +316,7 @@ class Connection implements ConnectionInterface
             if($this->isCodeIgniter()){
 //                $sql = $this->cleanBindings($query, $bindings);
                 $results = $this->runLegacySelect($query, $bindings);
+
                 return $results;
             }
             // For select statements, we'll simply execute the query and return an array
@@ -1295,7 +1296,12 @@ class Connection implements ConnectionInterface
     protected function runLegacySelect($sql, $params = []){
         $CI = &get_instance();
         $conn = $CI->db->conn_id;
+        $microtime = time();
         $res = @call_user_func_array("ibase_query", array_merge([$conn, $sql], $params));
+        $diff = (time() - $microtime);
+        $stringParams = json_encode($params);
+        $CI->db->queries[] = "$sql /* $stringParams */";
+        $CI->db->query_times[] = $diff;
         if(!$res){
             $sql_compiled = $this->cleanBindings($sql, $params);
             return $CI->db->query($sql_compiled)->result();
