@@ -322,8 +322,15 @@ class Connection implements ConnectionInterface
             // For select statements, we'll simply execute the query and return an array
             // of the database result set. Each element in the array will be a single
             // row from the database table, and will either be an array or objects.
-            $pdo = $this->getPdo();
-            $statement = $pdo->query($this->cleanBindings($query, $bindings));
+            $pdo = $this->getReadPdo();
+            $statement = $pdo->query($query, $this->fetchMode);
+            $err = $pdo->errorInfo();
+            $errCode = $pdo->errorCode();
+            if($errCode != "000"){
+                throw new Exception(@$err[2] ?: "Erro ao executar a query no banco de dados");
+            }
+            $this->bindValues($statement, $this->prepareBindings($bindings));
+//            $statement = $pdo->query($this->cleanBindings($query, $bindings));
             $statement->execute();
 
             return $statement->fetchAll();
@@ -1317,6 +1324,16 @@ class Connection implements ConnectionInterface
      * @return bool
      */
     protected function isCodeIgniter(){
-        return function_exists("get_instance");
+        return function_exists("get_instance") && $this->isFirebird15();
+    }
+
+    protected function isFirebird15(){
+        $CI = &get_instance();
+        $sistema = $CI->sistema->get_sistema();
+        $versao = @$sistema["sgbd_versao"];
+        if(empty($versao)){
+            return true; // Por padrão, por enquanto, usar o FB 15
+        }
+        return str_contains($versao, "Firebird 1.5");
     }
 }
