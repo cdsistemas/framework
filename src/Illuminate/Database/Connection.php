@@ -1324,7 +1324,7 @@ class Connection implements ConnectionInterface
      * @return bool
      */
     protected function isCodeIgniter(){
-        return function_exists("get_instance") && $this->isFirebird15();
+        return function_exists("get_instance");
     }
 
     protected function isFirebird15(){
