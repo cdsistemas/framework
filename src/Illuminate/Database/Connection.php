@@ -480,7 +480,7 @@ class Connection implements ConnectionInterface
                 return true;
             }
             if($this->isCodeIgniter()){
-                return $this->runLegacyStatement($this->cleanBindings($query, $bindings));
+                return $this->runLegacyStatement($query, $bindings);
             }
             $CI = &get_instance();
             $sql = $this->cleanBindings($query, $bindings);
